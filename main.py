@@ -428,7 +428,7 @@ def webhook():
 
         # Validate token
         received_token = data.get('token')
-        logger.info(f"Token validation - Received: {received_token}")
+        #logger.info(f"Token validation - Received: {received_token}")
 
         if received_token != WEBHOOK_TOKEN:
             logger.error("Invalid token!")
