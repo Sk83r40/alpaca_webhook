@@ -22,3 +22,15 @@
 2025-08-03 05:27:18,289 - INFO -  * Restarting with stat
 2025-08-03 05:27:20,072 - WARNING -  * Debugger is active!
 2025-08-03 05:27:20,078 - INFO -  * Debugger PIN: 142-710-736
+2025-08-03 08:53:47,841 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.178.22:5000
+2025-08-03 08:53:47,841 - INFO - [33mPress CTRL+C to quit[0m
+2025-08-03 08:53:47,843 - INFO -  * Restarting with stat
+2025-08-03 08:53:49,222 - WARNING -  * Debugger is active!
+2025-08-03 08:53:49,226 - INFO -  * Debugger PIN: 142-710-736
+2025-08-03 08:55:25,100 - INFO -  * Detected change in 'C:\\Users\\user\\PycharmProjects\\ALPACA_PAPER_2\\main.py', reloading
+2025-08-03 08:55:26,313 - INFO -  * Restarting with stat
+2025-08-03 08:55:27,885 - WARNING -  * Debugger is active!
+2025-08-03 08:55:27,889 - INFO -  * Debugger PIN: 142-710-736
