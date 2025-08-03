@@ -4,14 +4,14 @@ import logging
 import traceback
 import re
 import os
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import requests
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.rest import TimeFrame
 
 # ─── Load .env before any os.getenv() calls ─────────────────────────────────
-#load_dotenv()
+load_dotenv()
 # ─── Load API credentials into globals ─────────────────────────────────────
 ALPACA_API_KEY    = os.getenv('ALPACA_API_KEY')
 ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
@@ -46,9 +46,6 @@ app = Flask(__name__)
 
 # ─── Webhook token for validation ──────────────────────────────────────────
 WEBHOOK_TOKEN = os.getenv('WEBHOOK_TOKEN')
-print(f"DEBUG: Loaded Token: {WEBHOOK_TOKEN}")
-
-
 # ─── Trading configuration constants ───────────────────────────────────────
 INITIAL_BALANCE_PER_TICKER = 2000   # $ per new ticker
 BALANCE_USAGE_PERCENT    = 0.98     # use 98%
@@ -432,9 +429,8 @@ def webhook():
         # Validate token
         received_token = data.get('token')
         logger.info(f"Token validation - Received: {received_token}")
-        logger.info(f"Token validation - Expected: {WEBHOOK_TOKEN}")
 
-        if received_token.strip() != WEBHOOK_TOKEN.strip():
+        if received_token != WEBHOOK_TOKEN:
             logger.error("Invalid token!")
             return jsonify({'error': 'Invalid token'}), 401
 
