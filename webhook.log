@@ -1,0 +1,24 @@
+2025-08-02 14:01:25,325 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.178.22:5000
+2025-08-02 14:01:25,325 - INFO - [33mPress CTRL+C to quit[0m
+2025-08-02 14:01:25,327 - INFO -  * Restarting with stat
+2025-08-02 14:01:26,853 - WARNING -  * Debugger is active!
+2025-08-02 14:01:26,857 - INFO -  * Debugger PIN: 142-710-736
+2025-08-03 05:20:13,734 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.178.22:5000
+2025-08-03 05:20:13,734 - INFO - [33mPress CTRL+C to quit[0m
+2025-08-03 05:20:13,737 - INFO -  * Restarting with stat
+2025-08-03 05:20:15,119 - WARNING -  * Debugger is active!
+2025-08-03 05:20:15,123 - INFO -  * Debugger PIN: 142-710-736
+2025-08-03 05:27:18,287 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.178.22:5000
+2025-08-03 05:27:18,287 - INFO - [33mPress CTRL+C to quit[0m
+2025-08-03 05:27:18,289 - INFO -  * Restarting with stat
+2025-08-03 05:27:20,072 - WARNING -  * Debugger is active!
+2025-08-03 05:27:20,078 - INFO -  * Debugger PIN: 142-710-736
