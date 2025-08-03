@@ -45,8 +45,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # ─── Webhook token for validation ──────────────────────────────────────────
-WEBHOOK_TOKEN = "j2943y8fh29f934hgb0323u2f9h88hcmbx1091nnsac191nc73vx62"
-
+WEBHOOK_TOKEN = os.getenv('WEBHOOK_TOKEN')
 # ─── Trading configuration constants ───────────────────────────────────────
 INITIAL_BALANCE_PER_TICKER = 2000   # $ per new ticker
 BALANCE_USAGE_PERCENT    = 0.98     # use 98%
