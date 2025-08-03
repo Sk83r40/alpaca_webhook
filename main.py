@@ -4,14 +4,14 @@ import logging
 import traceback
 import re
 import os
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import requests
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.rest import TimeFrame
 
 # ─── Load .env before any os.getenv() calls ─────────────────────────────────
-load_dotenv()
+#load_dotenv()
 # ─── Load API credentials into globals ─────────────────────────────────────
 ALPACA_API_KEY    = os.getenv('ALPACA_API_KEY')
 ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
