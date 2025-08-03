@@ -417,7 +417,10 @@ def webhook():
                 return fields
 
             data = extract_required_fields(decoded_data)
-            logger.info(f"Clean extracted data: {json.dumps(data, indent=2)}")
+            safe_data = data.copy()
+            if "token" in safe_data:
+                safe_data["token"] = "***REDACTED***"
+            logger.info(f"Clean extracted data: {json.dumps(safe_data, indent=2)}")
 
         except Exception as e:
             logger.error(f"Failed to extract required fields: {e}")
