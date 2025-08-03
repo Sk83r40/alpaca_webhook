@@ -46,8 +46,8 @@ app = Flask(__name__)
 
 # ─── Webhook token for validation ──────────────────────────────────────────
 WEBHOOK_TOKEN = os.getenv('WEBHOOK_TOKEN')
-# ✅ Debug print
-print(f"[DEBUG] Loaded Token: {WEBHOOK_TOKEN}")
+print(f"DEBUG: Loaded Token: {expected_token}")
+
 # ─── Trading configuration constants ───────────────────────────────────────
 INITIAL_BALANCE_PER_TICKER = 2000   # $ per new ticker
 BALANCE_USAGE_PERCENT    = 0.98     # use 98%
