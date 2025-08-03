@@ -430,11 +430,11 @@ def webhook():
         data = extract_essential_data(data)
 
         # Validate token
-        if received_token.strip() != WEBHOOK_TOKEN.strip():
+        received_token = data.get('token')
         logger.info(f"Token validation - Received: {received_token}")
         logger.info(f"Token validation - Expected: {WEBHOOK_TOKEN}")
 
-        #if received_token != WEBHOOK_TOKEN:
+        if received_token.strip() != WEBHOOK_TOKEN.strip():
             logger.error("Invalid token!")
             return jsonify({'error': 'Invalid token'}), 401
 
