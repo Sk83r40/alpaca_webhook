@@ -1,3 +1,45 @@
+"""
+📄 Script Purpose: TESTING_webhook.py
+
+🔧 PREVIOUS BEHAVIOR:
+- On BUY alert: Placed a BUY order using 98% of stored balance and immediately logged the assumed execution price and balance changes.
+- On SELL alert: Placed a SELL order and immediately logged the assumed exit price and calculated PnL.
+- ✅ Logging was based on intended/limit prices, not actual filled prices.
+- ❌ This caused inaccurate balances and wrong PnL calculations when real fill prices differed from the logged prices.
+
+🆕 UPDATED LOGIC (This Version):
+- BUY alert: Places order using 98% of assumed balance, but **does NOT log** the trade yet.
+- SELL alert: Places order, but **still does NOT log** anything yet.
+- On next BUY for same ticker:
+    • Pulls last two filled orders (BUY + SELL) from Alpaca
+    • Calculates the real PnL using actual execution prices
+    • Updates ticker_balances.json and ticker_log.json with accurate data
+    • Then places the new BUY using 98% of updated balance
+
+🎯 Purpose of This Change:
+- Ensure that logging reflects actual Alpaca fill prices
+- Keep balances accurate and avoid false overestimations
+- Prevent trade failures due to phantom balance or wrong PnL
+- Make the system fully self-correcting and aligned with real trade data
+
+📅 Version: August 2025
+"""
+
+from flask import Flask, request, jsonify
+import json
+import logging
+import traceback
+import re
+import os
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+import requests
+import alpaca_trade_api as tradeapi
+from alpaca_trade_api.rest import TimeFrame
+
+# ─── Load .env before any os.getenv() calls ───────
+
+
 from flask import Flask, request, jsonify
 import json
 import logging
@@ -46,6 +88,7 @@ app = Flask(__name__)
 
 # ─── Webhook token for validation ──────────────────────────────────────────
 WEBHOOK_TOKEN = os.getenv('WEBHOOK_TOKEN')
+
 # ─── Trading configuration constants ───────────────────────────────────────
 INITIAL_BALANCE_PER_TICKER = 2000   # $ per new ticker
 BALANCE_USAGE_PERCENT    = 0.98     # use 98%
@@ -58,7 +101,7 @@ def load_ticker_balances():
     try:
         with open(BALANCE_FILE, 'r') as f:
             balances = json.load(f)
-        logger.info(f"Loaded ticker balances from file: {balances}")
+        #logger.info(f"Loaded ticker balances from file: {balances}")
         return balances
     except (FileNotFoundError, json.JSONDecodeError) as e:
         logger.info(f"No balances file found ({e}), starting fresh")
@@ -125,52 +168,6 @@ def calculate_buy_amount_and_shares(symbol, balance, current_price):
 
     return usable_amount, shares_to_buy
 
-
-def log_buy_trade(symbol, shares, price, total_cost):
-    """Log a buy trade"""
-    trade_log = load_trade_log()
-
-    # Clear previous log for this ticker (new buy alert)
-    trade_log[symbol] = {
-        'type': 'buy',
-        'shares': shares,
-        'price': price,
-        'total_cost': total_cost,
-        'timestamp': datetime.now().isoformat()
-    }
-
-    save_trade_log(trade_log)
-    logger.info(f"LOGGED BUY: {symbol} - {shares:.6f} shares at ${price:.4f} = ${total_cost:.2f}")
-
-
-def log_sell_trade(symbol, shares, price, total_proceeds):
-    """Log a sell trade and calculate P&L"""
-    trade_log = load_trade_log()
-
-    if symbol not in trade_log:
-        logger.error(f"No buy record found for {symbol} - cannot calculate P&L")
-        return 0.0
-
-    buy_record = trade_log[symbol]
-    buy_cost = buy_record['total_cost']
-    pnl = total_proceeds - buy_cost
-
-    # Add sell information to existing record
-    trade_log[symbol]['sell'] = {
-        'shares': shares,
-        'price': price,
-        'total_proceeds': total_proceeds,
-        'pnl': pnl,
-        'timestamp': datetime.now().isoformat()
-    }
-
-    save_trade_log(trade_log)
-    logger.info(f"LOGGED SELL: {symbol} - {shares:.6f} shares at ${price:.4f} = ${total_proceeds:.2f}")
-    logger.info(f"P&L for {symbol}: ${pnl:.2f}")
-
-    return pnl
-
-
 def sync_position_with_alpaca(symbol, ticker_balances):
     """Sync internal tracking with actual Alpaca position"""
     try:
@@ -196,47 +193,6 @@ def sync_position_with_alpaca(symbol, ticker_balances):
     except Exception as e:
         logger.error(f"Error syncing position for {symbol}: {e}")
         return 0.0
-
-
-def update_balance_after_buy(symbol, balances, investment_amount):
-    """Update ticker balance after a buy order"""
-    ticker_data = get_ticker_balance(symbol, balances)
-
-    # Deduct investment from balance
-    ticker_data['balance'] -= investment_amount
-    ticker_data['total_invested'] += investment_amount
-    ticker_data['trade_count'] += 1
-
-    logger.info(f"BALANCE UPDATE AFTER BUY for {symbol}:")
-    logger.info(f"  Investment amount: ${investment_amount:.2f}")
-    logger.info(f"  New balance: ${ticker_data['balance']:.2f}")
-    logger.info(f"  Total invested: ${ticker_data['total_invested']:.2f}")
-
-    balances[symbol] = ticker_data
-    save_ticker_balances(balances)
-
-
-def update_balance_after_sell(symbol, balances, proceeds):
-    """Update ticker balance after a sell order"""
-    ticker_data = get_ticker_balance(symbol, balances)
-
-    # Add proceeds to balance
-    ticker_data['balance'] += proceeds
-
-    # Calculate P&L from trade log
-    trade_log = load_trade_log()
-    if symbol in trade_log and 'sell' in trade_log[symbol]:
-        pnl = trade_log[symbol]['sell']['pnl']
-        ticker_data['total_realized_pnl'] += pnl
-
-    logger.info(f"BALANCE UPDATE AFTER SELL for {symbol}:")
-    logger.info(f"  Proceeds: ${proceeds:.2f}")
-    logger.info(f"  New balance: ${ticker_data['balance']:.2f}")
-    logger.info(f"  Total realized P&L: ${ticker_data['total_realized_pnl']:.2f}")
-
-    balances[symbol] = ticker_data
-    save_ticker_balances(balances)
-
 
 def fix_json_format(json_string):
     """Fix the specific JSON issue: remove extra quotes after numbers"""
@@ -297,7 +253,7 @@ def extract_essential_data(data):
         except (ValueError, TypeError):
             logger.warning(f"Invalid price value ignored: {data['price']}")
 
-    logger.info(f"Extracted essential data: {json.dumps(essential_fields, indent=2)}")
+    #logger.info(f"Extracted essential data: {json.dumps(essential_fields, indent=2)}")
     return essential_fields
 
 
@@ -368,21 +324,21 @@ def webhook():
     try:
         logger.info("NEW WEBHOOK ALERT RECEIVED")
         logger.info(f"Request method: {request.method}")
-        logger.info(f"Request headers: {dict(request.headers)}")
+        #logger.info(f"Request headers: {dict(request.headers)}")
 
         # Load current ticker balances
         ticker_balances = load_ticker_balances()
 
         # Get raw data
         raw_data = request.get_data()
-        logger.info(f"Raw request data: {raw_data}")
-        logger.info(f"Raw data type: {type(raw_data)}")
-        logger.info(f"Content-Type: {request.content_type}")
+        #logger.info(f"Raw request data: {raw_data}")
+        #logger.info(f"Raw data type: {type(raw_data)}")
+        #logger.info(f"Content-Type: {request.content_type}")
 
         # Try extracting only essential fields without full parsing
         try:
             decoded_data = raw_data.decode('utf-8')
-            logger.info(f"Decoded raw alert text:\n{decoded_data}")
+            #logger.info(f"Decoded raw alert text:\n{decoded_data}")
 
             # Use pattern matching to pull out only the required fields
             def extract_required_fields(raw_text):
@@ -417,10 +373,7 @@ def webhook():
                 return fields
 
             data = extract_required_fields(decoded_data)
-            safe_data = data.copy()
-            if "token" in safe_data:
-                safe_data["token"] = "***REDACTED***"
-            logger.info(f"Clean extracted data: {json.dumps(safe_data, indent=2)}")
+            logger.info(f"Clean extracted data: {json.dumps(data, indent=2)}")
 
         except Exception as e:
             logger.error(f"Failed to extract required fields: {e}")
@@ -465,7 +418,7 @@ def webhook():
             logger.error(f"Invalid action: {action}")
             return jsonify({'error': f'Invalid action: {action}'}), 400
 
-        logger.info(f"Action '{action}' mapped to side '{side}'")
+        #logger.info(f"Action '{action}' mapped to side '{side}'")
 
         # SYNC POSITION WITH ALPACA
         logger.info("=== SYNCING POSITION WITH ALPACA ===")
@@ -548,8 +501,8 @@ def webhook():
                     return jsonify({'error': str(e)}), 500
 
             logger.info(f"SUCCESS: Sell order submitted - ID: {order.id}")
-            pnl = log_sell_trade(symbol, qty, execution_price, proceeds)
-            update_balance_after_sell(symbol, ticker_balances, proceeds)
+            #pnl = log_sell_trade(symbol, qty, execution_price, proceeds)
+            #update_balance_after_sell(symbol, ticker_balances, proceeds)
 
             # ─── RETURN from SELL ──────────────────────────────────────────
             return jsonify({
@@ -557,7 +510,7 @@ def webhook():
                 'order_id': order.id,
                 'shares_sold': qty,
                 'estimated_proceeds': f'${proceeds:.2f}',
-                'pnl': f'${pnl:.2f}',
+                #'pnl': f'${pnl:.2f}',
                 'updated_balance': f'${ticker_balances[symbol]["balance"]:.2f}'
             }), 200
 
@@ -568,6 +521,69 @@ def webhook():
             if actual_shares > 0:
                 logger.error(f"Cannot buy - position already exists ({actual_shares} shares)")
                 return jsonify({'error': 'Position already exists'}), 400
+
+            # === DELAYED LOGGING SYSTEM: check if there was a SELL and BUY to reconcile ===
+            logger.info("Checking for past trades to reconcile...")
+
+            # Get all past orders for this symbol (most recent first)
+            try:
+                recent_orders = api.list_orders(
+                    status='closed',
+                    symbols=[symbol],
+                    limit=5,
+                    nested=True
+                )
+                buys = [o for o in recent_orders if o.side == 'buy' and o.filled_at]
+                sells = [o for o in recent_orders if o.side == 'sell' and o.filled_at]
+
+                if buys and sells:
+                    last_buy = buys[0]
+                    last_sell = sells[0]
+
+                    buy_price = float(last_buy.filled_avg_price)
+                    buy_qty = float(last_buy.filled_qty)
+                    buy_cost = buy_price * buy_qty
+
+                    sell_price = float(last_sell.filled_avg_price)
+                    sell_qty = float(last_sell.filled_qty)
+                    sell_proceeds = sell_price * sell_qty
+
+                    pnl = sell_proceeds - buy_cost
+                    logger.info(
+                        f"RECONCILED TRADE: {symbol} | Buy: {buy_qty} @ {buy_price} | Sell: {sell_qty} @ {sell_price} | PnL: ${pnl:.2f}")
+
+                    # Update balances
+                    ticker_data = get_ticker_balance(symbol, ticker_balances)
+                    ticker_data['balance'] += pnl
+                    ticker_data['total_realized_pnl'] += pnl
+                    ticker_data['trade_count'] += 1
+                    ticker_balances[symbol] = ticker_data
+                    save_ticker_balances(ticker_balances)
+
+                    # Log both trades
+                    trade_log = load_trade_log()
+                    trade_log.setdefault(symbol, []).append({
+                        'type': 'buy',
+                        'shares': buy_qty,
+                        'price': buy_price,
+                        'total_cost': buy_cost,
+                        'timestamp': str(last_buy.filled_at)
+                    })
+                    trade_log[symbol].append({
+                        'type': 'sell',
+                        'shares': sell_qty,
+                        'price': sell_price,
+                        'total_proceeds': sell_proceeds,
+                        'pnl': pnl,
+                        'timestamp': str(last_sell.filled_at)
+                    })
+                    save_trade_log(trade_log)
+
+                else:
+                    logger.info(f"No complete past BUY + SELL pair found for {symbol}, skipping reconciliation.")
+
+            except Exception as e:
+                logger.error(f"Error fetching past orders for {symbol}: {e}")
 
             if current_balance <= 0:
                 logger.error(f"No available balance for {symbol}: ${current_balance}")
@@ -619,8 +635,8 @@ def webhook():
                     return jsonify({'error': str(e)}), 500
 
             logger.info(f"SUCCESS: Buy order submitted - ID: {order.id}")
-            log_buy_trade(symbol, qty, execution_price, actual_cost)
-            update_balance_after_buy(symbol, ticker_balances, actual_cost)
+            #log_buy_trade(symbol, qty, execution_price, actual_cost)
+            #update_balance_after_buy(symbol, ticker_balances, actual_cost)
 
             # ─── RETURN from BUY ────────────────────────────────────────────
             return jsonify({
@@ -636,6 +652,36 @@ def webhook():
         logger.error(f"Webhook error: {e}")
         logger.error(traceback.format_exc())
         return jsonify({'error': 'Internal server error'}), 500
+@app.route('/alpaca/fills/<symbol>', methods=['GET'])
+def get_recent_fills(symbol):
+    """Return the last 5 filled orders for a symbol from Alpaca"""
+    try:
+        orders = api.list_orders(
+            status='closed',
+            symbols=[symbol],
+            limit=5,
+            nested=True
+        )
+        fills = []
+        for o in orders:
+            if o.filled_at:
+                fills.append({
+                    'id': o.id,
+                    'side': o.side,
+                    'qty': o.filled_qty,
+                    'price': o.filled_avg_price,
+                    'filled_at': o.filled_at.isoformat(),
+                    'type': o.type
+                })
+
+        return jsonify({
+            'symbol': symbol.upper(),
+            'recent_fills': fills
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching recent fills for {symbol}: {e}")
+        return jsonify({'error': 'Failed to fetch recent fills'}), 500
 
 
 @app.route('/balance', methods=['GET'])
@@ -704,11 +750,6 @@ def get_trade_log(symbol):
 def health_check():
     return jsonify({'status': 'Webhook server is running!'}), 200
 
-@app.route('/cron-ping', methods=['GET'])
-def cron_ping():
-    return "pong", 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-
