@@ -750,6 +750,9 @@ def get_trade_log(symbol):
 def health_check():
     return jsonify({'status': 'Webhook server is running!'}), 200
 
+@app.route('/cron-ping', methods=['GET'])
+def cron_ping():
+    return jsonify({'ping': 'ok'}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
